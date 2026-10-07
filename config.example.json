@@ -1,0 +1,21 @@
+{
+  "_ghi_chu": "Chép thành config.json rồi sửa. Các khóa bắt đầu bằng _ chỉ là ghi chú.",
+
+  "title_template": "Lesson {num} - Bài {num} {title} - HSK 2 Classical",
+  "include_related": true,
+
+  "images_enabled": true,
+  "upload_images": true,
+  "_image_sources": "Thứ tự nguồn hình: custom (images_custom/), pixabay (cần key), openverse (cần keyword_en), generated (thẻ tự vẽ)",
+  "image_sources": ["custom", "pixabay", "openverse", "generated"],
+  "pixabay_api_key": "",
+  "font_path": "",
+
+  "quizlet_base_url": "https://quizlet.com",
+  "_browser_channel": "\"chrome\" hoặc \"msedge\" để dùng trình duyệt đã cài (đăng nhập Google ổn định hơn); để trống = Chromium của Playwright",
+  "browser_channel": "chrome",
+  "headless": false,
+  "timeout_ms": 15000,
+  "image_wait_ms": 2500,
+  "watch_interval_sec": 10
+}

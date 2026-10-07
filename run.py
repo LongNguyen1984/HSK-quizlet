@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+"""HSK Docx -> Quizlet: tự động hoàn toàn.
+
+  python run.py login                 # 1 lần: đăng nhập Quizlet, lưu phiên
+  python run.py convert Bai_27.docx   # chỉ tạo file nhập + thư mục hình (không đụng Quizlet)
+  python run.py upload  Bai_27.docx   # chuyển đổi + tạo hình + tạo học phần trên Quizlet
+  python run.py watch                 # chạy nền: thả .docx vào inbox/ là tự lên Quizlet
+  python run.py inspect               # mở Playwright Inspector để sửa selector khi Quizlet đổi giao diện
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import shutil
+import sys
+import time
+import traceback
+from datetime import datetime
+from pathlib import Path
+
+for _s in (sys.stdout, sys.stderr):           # tránh lỗi in tiếng Việt / chữ Hán trên Windows console
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+REPO = Path(__file__).resolve().parent
+sys.path.insert(0, str(REPO))
+
+from hskq.export import write_outputs          # noqa: E402
+from hskq.images import build_images           # noqa: E402
+from hskq.parser import parse_docx             # noqa: E402
+
+OUT = REPO / "output"
+INBOX = REPO / "inbox"
+HISTORY = OUT / "history.json"
+
+
+def load_config() -> dict:
+    cfg_path = REPO / "config.json"
+    if not cfg_path.exists():
+        shutil.copy(REPO / "config.example.json", cfg_path)
+        print("[i] Đã tạo config.json từ config.example.json")
+    cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+    return {k: v for k, v in cfg.items() if not k.startswith("_")}
+
+
+def load_history() -> dict:
+    return json.loads(HISTORY.read_text(encoding="utf-8")) if HISTORY.exists() else {}
+
+
+def save_history(h: dict):
+    OUT.mkdir(exist_ok=True)
+    HISTORY.write_text(json.dumps(h, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def make_title(lesson, cfg) -> str:
+    tpl = cfg.get("title_template", "Lesson {num} - Bài {num} {title} - HSK 2 Classical")
+    return " ".join(tpl.format(num=lesson.number, title=lesson.title).split())
+
+
+def convert(path: Path, cfg: dict, images: bool = True, refresh: bool = False):
+    lesson = parse_docx(path, include_related=cfg.get("include_related", True))
+    if not lesson.cards:
+        raise RuntimeError(f"{path.name}: không tìm thấy bảng từ vựng")
+    lesson_dir = OUT / lesson.slug
+    print(f"[*] {path.name}: {len(lesson.cards)} thẻ  ->  {lesson_dir}")
+    if images and cfg.get("images_enabled", True):
+        build_images(lesson, lesson_dir, cfg, REPO, refresh=refresh)
+    write_outputs(lesson, lesson_dir)
+    return lesson, lesson_dir
+
+
+def upload(paths: list[Path], cfg: dict, args) -> list[tuple[Path, bool]]:
+    from hskq.quizlet import QuizletBot
+    hist = load_history()
+    results = []
+    with QuizletBot(REPO, cfg).open(headless=args.headless or None) as bot:
+        for path in paths:
+            try:
+                lesson, lesson_dir = convert(path, cfg, images=not args.no_images,
+                                             refresh=args.refresh_images)
+                if lesson.slug in hist and not args.force:
+                    print(f"   [=] {lesson.slug} đã có trên Quizlet: {hist[lesson.slug]['url']} "
+                          f"(thêm --force để tạo lại)")
+                    results.append((path, True))
+                    continue
+                title = make_title(lesson, cfg)
+                print(f"   Tiêu đề: {title}")
+                url = bot.create_set(lesson, title, lesson_dir,
+                                     with_images=not args.no_images and cfg.get("upload_images", True),
+                                     assist=args.assist)
+                (lesson_dir / "quizlet_url.txt").write_text(url + "\n", encoding="utf-8")
+                hist[lesson.slug] = {"url": url, "title": title, "cards": len(lesson.cards),
+                                     "source": path.name, "time": datetime.now().isoformat(timespec="seconds")}
+                save_history(hist)
+                results.append((path, True))
+            except Exception as e:
+                print(f"[x] {path.name}: {e}")
+                traceback.print_exc(limit=2)
+                results.append((path, False))
+    return results
+
+
+class Tee:
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, s):
+        for st in self.streams:
+            st.write(s)
+            st.flush()
+
+    def flush(self):
+        for st in self.streams:
+            st.flush()
+
+
+def watch(cfg: dict, args):
+    INBOX.mkdir(exist_ok=True)
+    (INBOX / "done").mkdir(exist_ok=True)
+    (INBOX / "failed").mkdir(exist_ok=True)
+    OUT.mkdir(exist_ok=True)
+    log = open(OUT / "run.log", "a", encoding="utf-8")
+    sys.stdout = Tee(sys.__stdout__, log)
+    sys.stderr = Tee(sys.__stderr__, log)
+    interval = int(cfg.get("watch_interval_sec", 10))
+    print(f"[watch] {datetime.now():%Y-%m-%d %H:%M} – theo dõi {INBOX} (mỗi {interval}s). Ctrl+C để dừng.")
+    while True:
+        files = sorted(f for f in INBOX.glob("*.docx") if not f.name.startswith("~$"))
+        if files:
+            time.sleep(2)  # chờ file chép xong
+            for path, ok in upload(files, cfg, args):
+                dest = INBOX / ("done" if ok else "failed") / path.name
+                if dest.exists():
+                    dest = dest.with_name(f"{path.stem}_{datetime.now():%H%M%S}{path.suffix}")
+                shutil.move(str(path), dest)
+                print(f"[watch] {path.name} -> {dest.parent.name}/")
+        time.sleep(interval)
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("command", choices=["login", "convert", "upload", "watch", "inspect"])
+    ap.add_argument("files", nargs="*", help="file .docx")
+    ap.add_argument("--no-images", action="store_true", help="không tạo / không tải hình")
+    ap.add_argument("--refresh-images", action="store_true", help="tạo lại toàn bộ hình")
+    ap.add_argument("--force", action="store_true", help="tạo lại học phần dù đã tạo trước đó")
+    ap.add_argument("--assist", action="store_true", help="khi lỗi, dừng để bạn làm tiếp bằng tay")
+    ap.add_argument("--headless", action="store_true", help="chạy ẩn trình duyệt")
+    args = ap.parse_args()
+    cfg = load_config()
+
+    if args.command in ("convert", "upload") and not args.files:
+        ap.error("cần ít nhất một file .docx")
+    paths = [Path(f).resolve() for f in args.files]
+
+    if args.command == "convert":
+        for p in paths:
+            convert(p, cfg, images=not args.no_images, refresh=args.refresh_images)
+    elif args.command == "upload":
+        res = upload(paths, cfg, args)
+        sys.exit(0 if all(ok for _, ok in res) else 1)
+    elif args.command == "watch":
+        watch(cfg, args)
+    else:
+        from hskq.quizlet import QuizletBot
+        with QuizletBot(REPO, cfg).open(headless=False) as bot:
+            bot.login_interactive() if args.command == "login" else bot.inspect()
+
+
+if __name__ == "__main__":
+    main()

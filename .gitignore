@@ -1,0 +1,11 @@
+# dữ liệu riêng của bạn
+config.json
+browser_profile/
+output/*
+!output/.gitkeep
+inbox/*
+!inbox/.gitkeep
+# python
+.venv/
+__pycache__/
+*.pyc

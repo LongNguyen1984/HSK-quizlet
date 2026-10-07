@@ -1,0 +1,76 @@
+{
+  "_ghi_chu": "Bộ chọn (selector) giao diện Quizlet. Mỗi mục là danh sách ứng viên, thử lần lượt từ trên xuống. Khi Quizlet đổi giao diện, chạy 'python run.py inspect' để tìm selector mới rồi thêm vào đầu danh sách.",
+  "cookie_accept": [
+    "#onetrust-accept-btn-handler",
+    "button:has-text('Accept all')",
+    "button:has-text('Chấp nhận tất cả')",
+    "button:has-text('Chấp nhận')"
+  ],
+  "title": [
+    "[data-testid='set-title'] textarea",
+    "textarea[aria-label*='Title' i]",
+    "textarea[aria-label*='Tiêu đề' i]",
+    "textarea[placeholder*='title' i]",
+    "textarea[placeholder*='tiêu đề' i]",
+    "input[placeholder*='title' i]",
+    "input[placeholder*='tiêu đề' i]"
+  ],
+  "import_button": [
+    "[data-testid='import-button']",
+    "button:has-text('Import')",
+    "button:has-text('Nhập')"
+  ],
+  "import_textarea": [
+    "[role='dialog'] textarea",
+    "textarea[placeholder*='Word' i]",
+    "textarea[placeholder*='Từ' i]"
+  ],
+  "sep_term_tab": [
+    "[role='dialog'] label:has-text('Tab')",
+    "[role='dialog'] input[value='tab' i]",
+    "[role='dialog'] [role='radio']:has-text('Tab')"
+  ],
+  "sep_card_custom": [
+    "[role='dialog'] label:has-text('Custom') >> nth=-1",
+    "[role='dialog'] label:has-text('Tùy chỉnh') >> nth=-1",
+    "[role='dialog'] [role='radio']:has-text('Custom') >> nth=-1",
+    "[role='dialog'] [role='radio']:has-text('Tùy chỉnh') >> nth=-1"
+  ],
+  "sep_card_custom_input": [
+    "[role='dialog'] input[type='text'] >> nth=-1",
+    "[role='dialog'] input:not([type]) >> nth=-1"
+  ],
+  "import_confirm": [
+    "[role='dialog'] button:has-text('Import')",
+    "[role='dialog'] button:has-text('Nhập')"
+  ],
+  "card_rows": [
+    "[data-testid='term-row']",
+    "[data-term-luid]",
+    "[data-testid*='TermRow']",
+    "div[class*='TermRow']"
+  ],
+  "image_button": [
+    "button[aria-label*='image' i]",
+    "button[aria-label*='hình' i]",
+    "[data-testid*='image' i]",
+    "button:has-text('Image')",
+    "button:has-text('Hình ảnh')"
+  ],
+  "upload_button": [
+    "button:has-text('Upload')",
+    "button:has-text('Tải lên')",
+    "label:has-text('Upload')",
+    "label:has-text('Tải lên')"
+  ],
+  "uploaded_image": [
+    "img"
+  ],
+  "create_button": [
+    "[data-testid='create-set-button']",
+    "button:has-text('Create') >> nth=-1",
+    "button:has-text('Tạo') >> nth=-1",
+    "button:has-text('Save') >> nth=-1",
+    "button:has-text('Lưu') >> nth=-1"
+  ]
+}

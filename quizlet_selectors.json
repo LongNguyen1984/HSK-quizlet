@@ -72,5 +72,15 @@
     "button:has-text('Tạo') >> nth=-1",
     "button:has-text('Save') >> nth=-1",
     "button:has-text('Lưu') >> nth=-1"
+  ],
+  "human_check": [
+    "iframe[src*='challenges.cloudflare.com']",
+    "iframe[src*='captcha']",
+    "iframe[title*='challenge' i]",
+    "#px-captcha",
+    "#challenge-form",
+    "text=/verify you are (a )?human/i",
+    "text=/xác minh bạn là (con )?người/i",
+    "text=/press (&|and) hold/i"
   ]
 }

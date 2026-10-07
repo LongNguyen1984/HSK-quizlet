@@ -37,7 +37,12 @@ cd HSK-quizlet
 - Tạo `config.json`.
 - Mở trình duyệt để bạn **đăng nhập Quizlet một lần**. Đăng nhập xong, quay lại terminal và nhấn **Enter**.
 
-> Mẹo: trong Chromium của Playwright, nên đăng nhập Quizlet bằng **email và mật khẩu**. Google đôi khi chặn đăng nhập trong trình duyệt tự động. Nếu tài khoản Quizlet của bạn chỉ dùng "Đăng nhập bằng Google", hãy đặt thêm mật khẩu trong phần cài đặt tài khoản Quizlet.
+> **Bước đăng nhập mở một trình duyệt bình thường**, không bị Playwright điều khiển. Nhờ vậy ô **"Xác minh bạn là người" (CAPTCHA)** hoạt động như khi bạn tự lướt web. Làm theo thứ tự:
+> 1. Đăng nhập và giải ô xác minh nếu có.
+> 2. Mở thử `quizlet.com/create-set` để chắc chắn đã vào được.
+> 3. **Đóng hẳn cửa sổ trình duyệt.** Chương trình sẽ tự kiểm tra và lưu phiên đăng nhập.
+>
+> Có thể chạy lại `./hsk login` bất cứ lúc nào phiên hết hạn.
 
 macOS và Linux thường cũng chạy `./setup.sh`. Trên Windows thuần (không dùng WSL), dùng `setup_windows.bat`.
 
@@ -81,6 +86,18 @@ Bạn có hai cách:
 ```
 
 Script tạo một lối tắt trong thư mục Startup của Windows. Mỗi lần bạn đăng nhập Windows, nó mở một cửa sổ WSL thu nhỏ chạy `./start_watch.sh`. Nhật ký chạy nằm ở `output/run.log`.
+
+### Bị hỏi "xác minh bạn là người" (CAPTCHA)
+
+- **Khi đăng nhập:** chạy `./hsk login` (bản mới) rồi giải ô xác minh trong cửa sổ trình duyệt thường.
+- **Khi đang tự động tạo học phần:** chương trình phát hiện ô xác minh, in thông báo và **chờ tối đa 5 phút** để bạn giải trong cửa sổ đang mở, rồi chạy tiếp. Với `--headless`, chương trình không chờ mà báo lỗi.
+- **Nếu bị hỏi liên tục:** dùng Google Chrome thật cho Linux thay cho Chromium. Hệ thống chống bot ít nghi ngờ Chrome hơn.
+  ```bash
+  wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+  sudo apt install -y ./google-chrome-stable_current_amd64.deb
+  ```
+  Sau đó đặt `"browser_channel": "chrome"` trong `config.json`, xóa thư mục `browser_profile/` và chạy lại `./hsk login`.
+- Tránh chạy quá nhiều bài liên tục trong thời gian ngắn.
 
 ## 3. Hình minh họa
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """HSK Docx -> Quizlet: tự động hoàn toàn.
 
-  python run.py login                 # 1 lần: đăng nhập Quizlet, lưu phiên
-  python run.py convert Bai_27.docx   # chỉ tạo file nhập + thư mục hình (không đụng Quizlet)
-  python run.py upload  Bai_27.docx   # chuyển đổi + tạo hình + tạo học phần trên Quizlet
-  python run.py watch                 # chạy nền: thả .docx vào inbox/ là tự lên Quizlet
-  python run.py inspect               # mở Playwright Inspector để sửa selector khi Quizlet đổi giao diện
+  ./hsk login                         # 1 lần: mở trình duyệt thường để đăng nhập + giải xác minh
+  ./hsk convert Bai_27.docx   # chỉ tạo file nhập + thư mục hình (không đụng Quizlet)
+  ./hsk upload  Bai_27.docx   # chuyển đổi + tạo hình + tạo học phần trên Quizlet
+  ./hsk watch                 # chạy nền: thả .docx vào inbox/ là tự lên Quizlet
+  ./hsk inspect               # mở Playwright Inspector để sửa selector khi Quizlet đổi giao diện
 """
 from __future__ import annotations
 
@@ -27,6 +27,13 @@ for _s in (sys.stdout, sys.stderr):           # tránh lỗi in tiếng Việt /
         pass
 
 REPO = Path(__file__).resolve().parent
+
+# Gọi bằng "python3 run.py" (Python hệ thống) -> tự chuyển sang .venv nếu đã cài
+_venv_py = REPO / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+if _venv_py.exists() and Path(sys.prefix).resolve() != (REPO / ".venv").resolve() \
+        and not os.environ.get("HSK_NO_VENV_SWITCH"):
+    os.environ["HSK_NO_VENV_SWITCH"] = "1"
+    os.execv(str(_venv_py), [str(_venv_py), __file__, *sys.argv[1:]])
 sys.path.insert(0, str(REPO))
 
 from hskq.export import write_outputs          # noqa: E402
@@ -186,9 +193,12 @@ def main():
     elif args.command == "watch":
         watch(cfg, args)
     else:
-        from hskq.quizlet import QuizletBot
-        with QuizletBot(REPO, cfg).open(headless=False) as bot:
-            bot.login_interactive() if args.command == "login" else bot.inspect()
+        from hskq.quizlet import QuizletBot, login_plain
+        if args.command == "login":
+            login_plain(REPO, cfg)
+        else:
+            with QuizletBot(REPO, cfg).open(headless=False) as bot:
+                bot.inspect()
 
 
 if __name__ == "__main__":

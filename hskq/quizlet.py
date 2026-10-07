@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 import time
 from datetime import datetime
@@ -20,6 +22,65 @@ class QuizletError(RuntimeError):
     pass
 
 
+# Giảm dấu hiệu "trình duyệt bị điều khiển" mà hệ thống chống bot hay kiểm tra
+STEALTH_JS = """
+Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+window.chrome = window.chrome || {runtime: {}};
+Object.defineProperty(navigator, 'languages', {get: () => ['vi-VN', 'vi', 'en-US', 'en']});
+"""
+
+CHALLENGE_TITLES = re.compile(r"just a moment|attention required|verify|xác minh|access denied|captcha", re.I)
+
+
+def _need_display():
+    if sys.platform.startswith("linux") and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+        raise QuizletError("Không có màn hình đồ họa (DISPLAY). Trên WSL cần Windows 11 / WSLg "
+                           "(chạy 'wsl --update' trong PowerShell).")
+
+
+def _browser_executable(cfg: dict) -> str:
+    """Đường dẫn trình duyệt để mở THƯỜNG (không qua Playwright) khi đăng nhập."""
+    ch = cfg.get("browser_channel", "")
+    names = {"chrome": ["google-chrome", "google-chrome-stable", "chrome"],
+             "msedge": ["microsoft-edge", "microsoft-edge-stable", "msedge"]}.get(ch, [])
+    for n in names:
+        if shutil.which(n):
+            return shutil.which(n)
+    with sync_playwright() as pw:                       # Chromium do Playwright cài
+        return pw.chromium.executable_path
+
+
+def login_plain(repo_dir: Path, cfg: dict):
+    """Mở trình duyệt bình thường (không bị điều khiển) để bạn đăng nhập + giải xác minh 'tôi là người'.
+    Cookie được lưu vào browser_profile/ và các lần chạy tự động sau dùng lại."""
+    _need_display()
+    base = cfg.get("quizlet_base_url", "https://quizlet.com").rstrip("/")
+    profile = repo_dir / "browser_profile"
+    profile.mkdir(exist_ok=True)
+    for lock in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
+        (profile / lock).unlink(missing_ok=True)
+    exe = _browser_executable(cfg)
+    print(f"[i] Mở trình duyệt: {exe}")
+    proc = subprocess.Popen([exe, f"--user-data-dir={profile}", "--no-first-run",
+                             "--no-default-browser-check", "--password-store=basic",
+                             f"{base}/login"],
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    print("\n>>> 1. Đăng nhập Quizlet trong cửa sổ vừa mở (giải ô xác minh nếu có).")
+    print(">>> 2. Mở thử https://quizlet.com/create-set để chắc chắn đã vào được.")
+    print(">>> 3. ĐÓNG HẲN cửa sổ trình duyệt — chương trình sẽ tự kiểm tra.\n")
+    try:
+        proc.wait()
+    except KeyboardInterrupt:
+        proc.terminate()
+        proc.wait()
+    time.sleep(1)
+    with QuizletBot(repo_dir, cfg).open(headless=False) as bot:
+        if bot.is_logged_in():
+            print("[ok] Đã đăng nhập. Phiên được lưu trong browser_profile/.")
+        else:
+            print("[!] Chưa thấy đăng nhập. Chạy lại: ./hsk login")
+
+
 class QuizletBot:
     def __init__(self, repo_dir: Path, cfg: dict):
         self.repo_dir = repo_dir
@@ -31,19 +92,20 @@ class QuizletBot:
         self.ctx: BrowserContext | None = None
         self.page: Page | None = None
         self.debug_dir: Path | None = None
+        self._headless = False
 
     # ---------- trình duyệt ----------
     def open(self, headless: bool | None = None):
         if headless is None:
             headless = bool(self.cfg.get("headless", False))
+        self._headless = headless
+        if not headless:
+            _need_display()
         self._pw = sync_playwright().start()
         kw = dict(user_data_dir=str(self.profile), headless=headless,
                   viewport={"width": 1366, "height": 900}, locale="vi-VN",
-                  args=["--disable-blink-features=AutomationControlled"])
-        if not headless and sys.platform.startswith("linux") \
-                and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
-            raise QuizletError("Không có màn hình đồ họa (DISPLAY). Trên WSL cần Windows 11 / WSLg "
-                               "(chạy 'wsl --update' trong PowerShell), hoặc dùng --headless.")
+                  args=["--disable-blink-features=AutomationControlled", "--password-store=basic"],
+                  ignore_default_args=["--enable-automation"])
         channel = self.cfg.get("browser_channel", "")
         if channel:
             kw["channel"] = channel          # "chrome" hoặc "msedge": dùng trình duyệt đã cài trên máy
@@ -55,6 +117,7 @@ class QuizletBot:
             print(f"[i] Không mở được '{channel}' ({str(e).splitlines()[0]}). Dùng Chromium của Playwright.")
             kw.pop("channel")
             self.ctx = self._pw.chromium.launch_persistent_context(**kw)
+        self.ctx.add_init_script(STEALTH_JS)
         self.ctx.set_default_timeout(int(self.cfg.get("timeout_ms", 15000)))
         self.page = self.ctx.pages[0] if self.ctx.pages else self.ctx.new_page()
         return self
@@ -89,7 +152,7 @@ class QuizletBot:
             time.sleep(0.3)
         if required:
             raise QuizletError(f"Không tìm thấy phần tử '{key}' trên trang. "
-                               f"Sửa quizlet_selectors.json (xem: python run.py inspect).")
+                               f"Sửa quizlet_selectors.json (xem: ./hsk inspect).")
         return None
 
     def snap(self, name: str):
@@ -111,21 +174,45 @@ class QuizletBot:
             except PWError:
                 pass
 
+    def challenge_present(self) -> bool:
+        try:
+            if CHALLENGE_TITLES.search(self.page.title() or ""):
+                return True
+        except PWError:
+            return False
+        for s in self.sel.get("human_check", []):
+            try:
+                loc = self.page.locator(s).first
+                if loc.count() and loc.is_visible():
+                    return True
+            except PWError:
+                continue
+        return False
+
+    def wait_for_human(self, max_wait: int = 300):
+        """Nếu trang hiện ô 'xác minh bạn là người', chờ bạn giải trong cửa sổ trình duyệt."""
+        if not self.challenge_present():
+            return
+        self.snap("human_check")
+        if self.cfg.get("headless", False) or self._headless:
+            raise QuizletError("Quizlet yêu cầu xác minh 'tôi là người'. Chạy lại không có --headless "
+                               "để giải, hoặc chạy ./hsk login.")
+        print("[!] Quizlet đang yêu cầu xác minh 'tôi là người' — hãy giải trong cửa sổ trình duyệt...")
+        deadline = time.time() + max_wait
+        while time.time() < deadline:
+            time.sleep(2)
+            if not self.challenge_present():
+                print("    [ok] Đã qua bước xác minh.")
+                self.page.wait_for_timeout(1500)
+                return
+        raise QuizletError("Hết thời gian chờ xác minh 'tôi là người'.")
+
     def is_logged_in(self) -> bool:
         self.page.goto(f"{self.base}/create-set", wait_until="domcontentloaded")
         self.page.wait_for_timeout(2500)
+        self.wait_for_human()
         url = self.page.url
         return not re.search(r"/(login|sign-?up|goodbye)", url)
-
-    # ---------- đăng nhập 1 lần ----------
-    def login_interactive(self):
-        self.page.goto(f"{self.base}/login", wait_until="domcontentloaded")
-        print("\n>>> Đăng nhập Quizlet trong cửa sổ trình duyệt vừa mở.")
-        input(">>> Đăng nhập xong thì quay lại đây và nhấn Enter... ")
-        if self.is_logged_in():
-            print("[ok] Đã lưu phiên đăng nhập vào thư mục browser_profile/.")
-        else:
-            print("[!] Có vẻ chưa đăng nhập được. Chạy lại: python run.py login")
 
     # ---------- tạo học phần ----------
     def create_set(self, lesson: Lesson, title: str, lesson_dir: Path,
@@ -134,7 +221,7 @@ class QuizletBot:
         p = self.page
         try:
             if not self.is_logged_in():
-                raise QuizletError("Chưa đăng nhập Quizlet. Chạy một lần: python run.py login")
+                raise QuizletError("Chưa đăng nhập Quizlet. Chạy một lần: ./hsk login")
             self.dismiss_cookies()
 
             # 1) tiêu đề
@@ -171,6 +258,8 @@ class QuizletBot:
             # 4) lưu
             self.snap("before_create")
             self.find("create_button").click()
+            p.wait_for_timeout(1500)
+            self.wait_for_human()
             p.wait_for_url(re.compile(r"/\d{5,}/"), timeout=60000)
             url = p.url.split("?")[0]
             print(f"   [ok] Đã tạo: {url}")

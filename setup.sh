@@ -7,7 +7,8 @@ IS_WSL=0; grep -qi microsoft /proc/version 2>/dev/null && IS_WSL=1
 
 if command -v apt-get >/dev/null 2>&1; then
   echo "== Cài gói hệ thống: Python venv + font tiếng Trung (cần mật khẩu sudo) =="
-  sudo apt-get update
+  # Một nguồn apt hỏng (PPA cũ) không nên làm dừng cài đặt
+  sudo apt-get update || echo "[!] apt-get update báo lỗi ở một nguồn phần mềm khác (xem trên) – vẫn tiếp tục cài."
   sudo apt-get install -y python3 python3-venv python3-pip fonts-noto-cjk fonts-dejavu-core
 fi
 

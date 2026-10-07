@@ -11,9 +11,13 @@
   "pixabay_api_key": "",
   "font_path": "",
 
+  "_inbox_dir": "Để trống = ./inbox. Trên WSL có thể trỏ sang thư mục Windows, vd. /mnt/c/Users/<ten>/Documents/HSK-inbox",
+  "inbox_dir": "",
+  "output_dir": "",
+
   "quizlet_base_url": "https://quizlet.com",
-  "_browser_channel": "\"chrome\" hoặc \"msedge\" để dùng trình duyệt đã cài (đăng nhập Google ổn định hơn); để trống = Chromium của Playwright",
-  "browser_channel": "chrome",
+  "_browser_channel": "Để trống = Chromium của Playwright (khuyên dùng trên WSL/Linux). \"chrome\" / \"msedge\" = trình duyệt đã cài (Windows/macOS)",
+  "browser_channel": "",
   "headless": false,
   "timeout_ms": 15000,
   "image_wait_ms": 2500,

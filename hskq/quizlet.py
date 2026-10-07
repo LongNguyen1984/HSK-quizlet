@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -38,10 +40,21 @@ class QuizletBot:
         kw = dict(user_data_dir=str(self.profile), headless=headless,
                   viewport={"width": 1366, "height": 900}, locale="vi-VN",
                   args=["--disable-blink-features=AutomationControlled"])
+        if not headless and sys.platform.startswith("linux") \
+                and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+            raise QuizletError("Không có màn hình đồ họa (DISPLAY). Trên WSL cần Windows 11 / WSLg "
+                               "(chạy 'wsl --update' trong PowerShell), hoặc dùng --headless.")
         channel = self.cfg.get("browser_channel", "")
         if channel:
             kw["channel"] = channel          # "chrome" hoặc "msedge": dùng trình duyệt đã cài trên máy
-        self.ctx = self._pw.chromium.launch_persistent_context(**kw)
+        try:
+            self.ctx = self._pw.chromium.launch_persistent_context(**kw)
+        except PWError as e:
+            if not channel:
+                raise
+            print(f"[i] Không mở được '{channel}' ({str(e).splitlines()[0]}). Dùng Chromium của Playwright.")
+            kw.pop("channel")
+            self.ctx = self._pw.chromium.launch_persistent_context(**kw)
         self.ctx.set_default_timeout(int(self.cfg.get("timeout_ms", 15000)))
         self.page = self.ctx.pages[0] if self.ctx.pages else self.ctx.new_page()
         return self

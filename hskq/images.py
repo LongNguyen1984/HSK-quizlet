@@ -32,13 +32,17 @@ MAX_SIDE = 1000
 
 CJK_FONTS = [
     "C:/Windows/Fonts/msyh.ttc", "C:/Windows/Fonts/msyhbd.ttc", "C:/Windows/Fonts/simhei.ttf",
+    "/mnt/c/Windows/Fonts/msyhbd.ttc", "/mnt/c/Windows/Fonts/msyh.ttc", "/mnt/c/Windows/Fonts/simhei.ttf",
     "/System/Library/Fonts/PingFang.ttc", "/System/Library/Fonts/STHeiti Medium.ttc",
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc",
+    "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
 ]
 LATIN_FONTS = [
     "C:/Windows/Fonts/segoeui.ttf", "C:/Windows/Fonts/arial.ttf",
+    "/mnt/c/Windows/Fonts/segoeui.ttf", "/mnt/c/Windows/Fonts/arial.ttf",
     "/System/Library/Fonts/Supplemental/Arial.ttf", "/Library/Fonts/Arial.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",

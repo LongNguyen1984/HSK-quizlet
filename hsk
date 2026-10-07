@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Lệnh tắt: ./hsk login | convert | upload | watch | inspect  (tự dùng .venv)
+DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+[ -x "$DIR/.venv/bin/python" ] || { echo "Chưa cài đặt. Chạy: $DIR/setup.sh"; exit 1; }
+exec "$DIR/.venv/bin/python" "$DIR/run.py" "$@"

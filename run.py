@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 import shutil
 import sys
 import time
@@ -34,6 +36,25 @@ from hskq.parser import parse_docx             # noqa: E402
 OUT = REPO / "output"
 INBOX = REPO / "inbox"
 HISTORY = OUT / "history.json"
+
+
+def set_dirs(cfg: dict):
+    """Cho phép đặt inbox/output ở nơi khác, vd. thư mục Windows khi chạy trong WSL: /mnt/c/Users/ban/HSK/inbox"""
+    global OUT, INBOX, HISTORY
+    if cfg.get("inbox_dir"):
+        INBOX = Path(cfg["inbox_dir"]).expanduser()
+    if cfg.get("output_dir"):
+        OUT = Path(cfg["output_dir"]).expanduser()
+    HISTORY = OUT / "history.json"
+
+
+def to_local_path(f: str) -> Path:
+    """Trong WSL/Linux: đổi 'C:\\Users\\ban\\Bai_27.docx' (chép từ Explorer) thành /mnt/c/Users/ban/Bai_27.docx."""
+    f = f.strip().strip('"')
+    m = re.match(r"^([A-Za-z]):[\\/](.*)$", f)
+    if m and os.name != "nt":
+        f = f"/mnt/{m.group(1).lower()}/" + m.group(2).replace("\\", "/")
+    return Path(f).expanduser().resolve()
 
 
 def load_config() -> dict:
@@ -150,10 +171,11 @@ def main():
     ap.add_argument("--headless", action="store_true", help="chạy ẩn trình duyệt")
     args = ap.parse_args()
     cfg = load_config()
+    set_dirs(cfg)
 
     if args.command in ("convert", "upload") and not args.files:
         ap.error("cần ít nhất một file .docx")
-    paths = [Path(f).resolve() for f in args.files]
+    paths = [to_local_path(f) for f in args.files]
 
     if args.command == "convert":
         for p in paths:

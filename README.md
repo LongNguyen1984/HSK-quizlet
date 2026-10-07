@@ -19,29 +19,37 @@ inbox/Bai_27.docx  ──►  output/Bai_27/
 
 ---
 
-## 1. Cài đặt (một lần)
+## 1. Cài đặt trên WSL (một lần)
 
-### Windows
-1. Cài **Python 3.10 trở lên** từ https://www.python.org/downloads/. Khi cài, nhớ tick ô **"Add python.exe to PATH"**.
-2. Cài **Google Chrome**, nếu máy chưa có.
-3. Giải nén repo, ví dụ vào `C:\hsk-quizlet`, rồi nhấp đúp **`setup_windows.bat`**.
-4. Một cửa sổ trình duyệt sẽ mở. **Đăng nhập Quizlet** trong cửa sổ đó, xong quay lại màn hình đen và nhấn **Enter**.
-   Phiên đăng nhập được lưu trong `browser_profile/`, các lần sau không phải đăng nhập lại.
+**Cần có:** Windows 11, hoặc Windows 10 bản 21H2 trở lên, có **WSLg** để cửa sổ trình duyệt hiện lên được. Kiểm tra bằng cách mở PowerShell và chạy `wsl --update`. Nếu lệnh cập nhật gì đó, chạy tiếp `wsl --shutdown` rồi mở lại Ubuntu.
 
-### macOS / Linux
+Trong cửa sổ Ubuntu (WSL):
 ```bash
+cd ~
+git clone https://github.com/LongNguyen1984/HSK-quizlet.git
+cd HSK-quizlet
 ./setup.sh
 ```
 
+`setup.sh` tự làm các việc sau:
+- Cài Python venv và font tiếng Trung (`fonts-noto-cjk`). Bước này hỏi mật khẩu sudo.
+- Cài thư viện Python, Chromium cho Playwright và các thư viện hệ thống nó cần.
+- Tạo `config.json`.
+- Mở trình duyệt để bạn **đăng nhập Quizlet một lần**. Đăng nhập xong, quay lại terminal và nhấn **Enter**.
+
+> Mẹo: trong Chromium của Playwright, nên đăng nhập Quizlet bằng **email và mật khẩu**. Google đôi khi chặn đăng nhập trong trình duyệt tự động. Nếu tài khoản Quizlet của bạn chỉ dùng "Đăng nhập bằng Google", hãy đặt thêm mật khẩu trong phần cài đặt tài khoản Quizlet.
+
+macOS và Linux thường cũng chạy `./setup.sh`. Trên Windows thuần (không dùng WSL), dùng `setup_windows.bat`.
+
 ## 2. Sử dụng
 
-| Cách | Làm gì |
-|---|---|
-| **Kéo thả** | Kéo một hoặc nhiều file `.docx` thả vào `upload.bat` |
-| **Theo dõi thư mục** | Chạy `start_watch.bat`, sau đó cứ chép `.docx` vào `inbox/` là xong |
-| **Tự chạy khi bật máy** | Chạy `install_autostart.bat` một lần |
-| Dòng lệnh | `python run.py upload Bai_27.docx` |
-| Chỉ tạo file và hình, không đụng Quizlet | `python run.py convert Bai_27.docx` |
+```bash
+./hsk upload ~/Bai_27.docx                                  # một file
+./hsk upload "C:\Users\Long\Documents\HSK\Bai_28.docx"    # dán thẳng đường dẫn Windows cũng được
+./hsk upload /mnt/c/Users/Long/Documents/HSK/*.docx         # nhiều file
+./hsk convert Bai_27.docx                                   # chỉ tạo file nhập và hình, không đụng Quizlet
+./start_watch.sh                                            # chạy nền: thả .docx vào inbox là tự xử lý
+```
 
 Các tùy chọn thêm:
 
@@ -52,6 +60,27 @@ Các tùy chọn thêm:
 - `--headless`: chạy ẩn trình duyệt.
 
 Bài nào đã tạo xong được ghi vào `output/history.json`, nên thả lại cùng một file sẽ không tạo trùng.
+
+### Thả file từ Windows Explorer
+
+Bạn có hai cách:
+
+- **Dùng thư mục bên Windows.** Đây là cách tiện nhất. Trong `config.json`, đặt:
+  ```json
+  "inbox_dir":  "/mnt/c/Users/<tên>/Documents/HSK-inbox",
+  "output_dir": "/mnt/c/Users/<tên>/Documents/HSK-output"
+  ```
+  Sau đó cứ kéo file `.docx` vào `Documents\HSK-inbox` trong Explorer. Thư mục hình và link Quizlet sẽ nằm ở `Documents\HSK-output`.
+- **Dùng thư mục `inbox` mặc định trong WSL.** Trên thanh địa chỉ Explorer, gõ `\\wsl$\Ubuntu\home\<user>\HSK-quizlet\inbox`.
+
+### Tự chạy khi bật máy
+
+```bash
+./install_autostart_wsl.sh            # cài
+./install_autostart_wsl.sh --remove   # gỡ
+```
+
+Script tạo một lối tắt trong thư mục Startup của Windows. Mỗi lần bạn đăng nhập Windows, nó mở một cửa sổ WSL thu nhỏ chạy `./start_watch.sh`. Nhật ký chạy nằm ở `output/run.log`.
 
 ## 3. Hình minh họa
 
@@ -72,7 +101,7 @@ Với mỗi từ, chương trình thử lần lượt các nguồn hình theo th
 | `keyword_en` | Từ khóa tiếng Anh, cho kết quả tốt hơn. `keywords/Bai_27.csv` đã điền sẵn. |
 | `skip` | Ghi `x` để thẻ đó không có hình. |
 
-Sửa xong thì chạy `python run.py convert Bai_27.docx --refresh-images` để tạo lại hình.
+Sửa xong thì chạy `./hsk convert Bai_27.docx --refresh-images` để tạo lại hình.
 
 > ⚠️ Tải hình **của riêng bạn** lên thẻ Quizlet thường cần tài khoản **Quizlet Plus**. Nếu tài khoản miễn phí bị chặn upload, học phần vẫn được tạo, chỉ thiếu hình. Muốn tắt hẳn bước gắn hình, đặt `"upload_images": false` trong `config.json`. Thư mục `images/` vẫn được tạo để bạn dùng nơi khác.
 
@@ -82,7 +111,8 @@ Sửa xong thì chạy `python run.py convert Bai_27.docx --refresh-images` đ�
 |---|---|---|
 | `title_template` | `Lesson {num} - Bài {num} {title} - HSK 2 Classical` | Mẫu tên học phần |
 | `include_related` | `true` | Đưa phần bộ thủ và từ liên quan vào mặt sau |
-| `browser_channel` | `chrome` | Đổi thành `msedge` nếu máy dùng Edge; để `""` thì dùng Chromium của Playwright |
+| `browser_channel` | `""` | Để trống thì dùng Chromium của Playwright (nên dùng trên WSL). Trên Windows thuần hoặc macOS có thể đặt `chrome` hoặc `msedge` |
+| `inbox_dir`, `output_dir` | `""` | Thư mục nhận `.docx` và thư mục kết quả. Để trống thì dùng `./inbox` và `./output` |
 | `headless` | `false` | `true` để chạy ẩn. Nên để `false` ở lần chạy đầu để quan sát |
 | `timeout_ms`, `image_wait_ms` | 15000, 2500 | Tăng lên nếu mạng chậm |
 
@@ -92,7 +122,7 @@ Phần tự động bấm nút dựa vào các bộ chọn (selector) trong **`q
 
 Nếu báo lỗi `Không tìm thấy phần tử 'xxx'`:
 1. Xem ảnh chụp màn hình lúc lỗi trong `output/Bai_xx/debug/`.
-2. Chạy `python run.py inspect`. Trong Playwright Inspector, bấm **Pick locator** rồi nhấp vào nút cần tìm trên trang Quizlet.
+2. Chạy `./hsk inspect`. Trong Playwright Inspector, bấm **Pick locator** rồi nhấp vào nút cần tìm trên trang Quizlet.
 3. Chép selector vừa lấy vào **đầu** danh sách của mục `xxx` trong `quizlet_selectors.json`.
 
 Trong lúc chưa sửa, chạy với `--assist` để làm nốt bằng tay. Hoặc dán `quizlet_import.txt` vào Quizlet theo cách: **Tạo → Học phần → + Nhập**, chọn **Tab** giữa thuật ngữ và định nghĩa, **Tùy chỉnh `###`** giữa các thẻ.
@@ -100,7 +130,8 @@ Trong lúc chưa sửa, chạy với `--assist` để làm nốt bằng tay. Ho�
 ## 6. Cấu trúc repo
 
 ```
-run.py                   CLI: login / convert / upload / watch / inspect
+hsk                      lệnh tắt (WSL/Linux): ./hsk login | convert | upload | watch | inspect
+run.py                   CLI chính
 hskq/parser.py           đọc .docx → thẻ
 hskq/export.py           xuất quizlet_import.txt, cards.csv, cards.json
 hskq/images.py           tạo thư mục hình (custom / Pixabay / Openverse / tự vẽ)
@@ -108,7 +139,8 @@ hskq/quizlet.py          tự động hóa quizlet.com bằng Playwright
 quizlet_selectors.json   selector giao diện Quizlet (sửa khi Quizlet đổi giao diện)
 keywords/                từ khóa tìm hình cho từng bài
 images_custom/           hình riêng của bạn, mỗi bài một thư mục
-setup_windows.bat, setup.sh, start_watch.bat, upload.bat, install_autostart.bat
+setup.sh, start_watch.sh, install_autostart_wsl.sh      WSL / Linux / macOS
+setup_windows.bat, start_watch.bat, upload.bat, install_autostart.bat   Windows thuần (không WSL)
 ```
 
 **Lưu ý:** Quizlet không có API công khai để tạo học phần, nên chương trình điều khiển trình duyệt giống như người dùng thao tác. Hãy dùng cho học phần của chính bạn với tốc độ vừa phải. Điều khoản của Quizlet không khuyến khích tự động hóa ở quy mô lớn.
